@@ -1,0 +1,30 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.vs/
+.vscode/
+*.dbmdl
+*.log
+*.DS_Store
+*.env
+*.sqlite
+*.mdf
+*.ldf
+*.pdb
+*.cache
+*.TestResults/
+*.coverage
+*.ncrunch*
+*.localhistory/
+*.idea/
+*.vsconfig
+
+# Entity Framework
+Migrations/
+
+# Otros
+Thumbs.db
