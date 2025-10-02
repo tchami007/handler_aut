@@ -71,6 +71,10 @@
     - POST → ProcesarSolicitud (procesa el registro de una solicitud de débito)
     - POST → ProcesarCola (recarga la cola de eventos, con registros no procesados del repositorio interno, luego procesa los eventos)
     - PUT → ActualizarSaldo (actualiza el saldo del handler)
+    - GET → SolicitudesProcesadas (recupera todas las solicitudes procesadas, ordenadas por fecha real de procesamiento)
+# Pruebas de carga y precalentamiento
+
+Se recomienda realizar un precalentamiento inicial del Handler mediante el envío de solicitudes dummy (débito y crédito inocuos) para inicializar conexiones y reducir la latencia de las primeras solicitudes reales. Para pruebas de carga, se puede utilizar un script externo que dispare movimientos con comprobantes únicos y tiempos configurables entre llamados.
 - Seguridad → JWT sin refresh token, inicialmente
 
 # Worker de solicitudes
