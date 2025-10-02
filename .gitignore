@@ -26,11 +26,13 @@ obj/
 # Entity Framework
 Migrations/
 
+
 # Configuración sensible
 Handler/appsettings.json
 Handler/appsettings.Development.json
 Worker/appsettings.json
 Worker/appsettings.Development.json
+Worker/appsettings.cola_*.json
 
 # Otros
 Thumbs.db
