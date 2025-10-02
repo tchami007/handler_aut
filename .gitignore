@@ -1,3 +1,6 @@
+# Más configuración sensible
+Handler/Config/RabbitConfig.json
+Handler/appsettings.jwt.json
 # .NET
 bin/
 obj/
