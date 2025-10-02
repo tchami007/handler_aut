@@ -73,4 +73,33 @@
     - PUT → ActualizarSaldo (actualiza el saldo del handler)
 - Seguridad → JWT sin refresh token, inicialmente
 
+# Worker de solicitudes
+
+- Tipo de aplicación
+    - Se trata de una aplicación híbrida de servicio + web api .NET Core version 8, instanciable por cada cola que maneje HANDLER, en esta instancia de prototipo
+- Expone funciones de activación y consulta estado por APIs. 
+- Ejecuta su función principal de procesamiento en segundo plano por medio de un Background process con cancelation token
+- Persistencia → no posee propia, usa la base de datos de handler para actualización de respuestas (estado + saldos)
+- Integración
+    - Entity Framework para actualización en base de datos de handler
+    - ADO.net para disparo de procesos a la base Bansys
+    - Cliente RabbitMQ para acceder a eventos
+- Implementación en 3 capas:
+    - Presentación → Carpeta controller para apis
+    - Lógica de negocios → Codigo worker
+    - Infrastructure → Carpeta Repositorio
+      - Clases para actualización del estados/saldos de handler
+      - Clases para manejo de cola
+      - Clases para manejo de Sps
+- Modelos → Carpeta Model para diseños internos
+- Utils → Carpeta Shared para ubicar las clases transversales
+- Apis →
+    - GET → Health (indica el estado de worker)
+        - Activo
+        - Inactivo
+    - POST → ActivarWorker 
+    - POST → InactivarWorker
+- Seguridad → JWT sin refresh token, inicialmente
+
+
 

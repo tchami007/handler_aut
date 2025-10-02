@@ -19,18 +19,30 @@ namespace Handler.Infrastructure
                 entity.Property(e => e.Numero)
                       .IsRequired();
                 entity.Property(e => e.Saldo)
-                      .IsRequired();
+                      .IsRequired()
+                      .HasColumnType("decimal(18,2)");
             });
 
             modelBuilder.Entity<SolicitudDebito>(entity =>
             {
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.Monto)
-                      .IsRequired();
+                      .IsRequired()
+                      .HasColumnType("decimal(18,2)");
                 entity.Property(e => e.Estado)
                       .HasMaxLength(20)
                       .IsRequired();
                 entity.Property(e => e.FechaSolicitud)
+                      .IsRequired();
+                entity.Property(e => e.FechaReal)
+                      .IsRequired();
+                entity.Property(e => e.NumeroComprobante)
+                      .IsRequired()
+                      .HasColumnType("numeric(10,0)");
+                entity.Property(e => e.SaldoRespuesta)
+                      .IsRequired()
+                      .HasColumnType("decimal(18,2)");
+                entity.Property(e => e.CodigoEstado)
                       .IsRequired();
                 entity.HasOne<Cuenta>()
                       .WithMany()
