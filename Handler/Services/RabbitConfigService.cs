@@ -8,13 +8,13 @@ namespace Handler.Services
 
     public class RabbitConfig
     {
-        public string Host { get; set; } = "localhost";
-        public int Port { get; set; } = 5672;
-        public string UserName { get; set; } = "guest";
-        public string Password { get; set; } = "guest";
-        public string VirtualHost { get; set; } = "/";
-        public string Exchange { get; set; } = "handler_exchange";
-        public List<ColaConfig> Colas { get; set; } = new();
+    public string Host { get; set; } = "localhost";
+    public int Port { get; set; } = 5672;
+    public string UserName { get; set; } = "guest";
+    public string Password { get; set; } = "guest";
+    public string VirtualHost { get; set; } = "/";
+    public string Exchange { get; set; } = "handler_exchange";
+    public List<ColaConfig> Colas { get; set; } = new();
     }
 
     public class ColaConfig
@@ -27,9 +27,12 @@ namespace Handler.Services
         private readonly string _configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "RabbitConfig.json");
         private RabbitConfig? _config;
 
-        public RabbitConfigService()
-        {
+        public RabbitConfigService() {
             _config = LeerConfig();
+        }
+
+        public RabbitConfigService(RabbitConfig config) {
+            _config = config;
         }
 
         public RabbitConfig GetConfig() => _config ?? new RabbitConfig();

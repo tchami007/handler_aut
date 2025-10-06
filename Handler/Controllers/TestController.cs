@@ -34,5 +34,19 @@ namespace Handler.Controllers
                 _publisher.Publish(dto.Mensaje, dto.Cola);
                 return Ok($"Mensaje enviado a la cola '{dto.Cola}': {dto.Mensaje}");
             }
+
+            [HttpPost("rabbitmq/test")]
+            public IActionResult TestRabbitMq([FromQuery] string mensaje = "Mensaje de prueba", [FromQuery] string routingKey = "test_routing")
+            {
+                try
+                {
+                    _publisher.Publish(mensaje, routingKey);
+                    return Ok($"Mensaje de prueba enviado a RabbitMQ. RoutingKey: {routingKey}, Mensaje: {mensaje}");
+                }
+                catch (Exception ex)
+                {
+                    return StatusCode(500, $"Error al enviar mensaje a RabbitMQ: {ex.Message}");
+                }
+            }
     }
 }

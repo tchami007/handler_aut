@@ -33,17 +33,24 @@ builder.Services.AddAuthentication(options =>
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key ?? string.Empty))
         };
     });
-// Registrar la conexión RabbitMQ como singleton
+// Recuperar la configuración de RabbitMQ desde appsettings.json
+var rabbitConfig = builder.Configuration.GetSection("RabbitMQ").Get<Handler.Services.RabbitConfig>();
+builder.Services.AddSingleton<Handler.Services.RabbitConfig>(rabbitConfig ?? new Handler.Services.RabbitConfig());
+// Registrar RabbitConfigService usando el objeto de configuración
+builder.Services.AddSingleton<Handler.Services.IRabbitConfigService>(sp =>
+    new Handler.Services.RabbitConfigService(sp.GetRequiredService<Handler.Services.RabbitConfig>())
+);
+// Registrar la conexión RabbitMQ como singleton usando la configuración
 builder.Services.AddSingleton<RabbitMQ.Client.IConnection>(sp =>
 {
-    var rabbitConfig = sp.GetRequiredService<Handler.Services.IRabbitConfigService>().GetConfig();
+    var config = sp.GetRequiredService<Handler.Services.RabbitConfig>();
     var factory = new RabbitMQ.Client.ConnectionFactory
     {
-        HostName = rabbitConfig.Host,
-        Port = rabbitConfig.Port,
-        UserName = rabbitConfig.UserName,
-        Password = rabbitConfig.Password,
-        VirtualHost = rabbitConfig.VirtualHost
+        HostName = config.Host,
+        Port = config.Port,
+        UserName = config.UserName,
+        Password = config.Password,
+        VirtualHost = config.VirtualHost
     };
     return factory.CreateConnection();
 });
