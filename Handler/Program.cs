@@ -7,9 +7,34 @@ using System.Text;
 using Handler.Services;
 
 var builder = WebApplication.CreateBuilder(args);
+
 // Cargar configuración JWT
 builder.Configuration.AddJsonFile("appsettings.jwt.json", optional: false, reloadOnChange: true);
 
+
+// Leer RabbitConfig.json para la configuración de RabbitMQ y colas
+var rabbitConfigPath = builder.Configuration["ConfigPath"] ?? "Handler/Config/RabbitConfig.json";
+var rabbitConfigJson = File.ReadAllText(rabbitConfigPath);
+var rabbitConfig = System.Text.Json.JsonSerializer.Deserialize<Handler.Services.RabbitConfig>(rabbitConfigJson) ?? new Handler.Services.RabbitConfig();
+builder.Services.AddSingleton<Handler.Services.RabbitConfig>(rabbitConfig);
+builder.Services.AddSingleton<Handler.Services.IRabbitConfigService>(sp =>
+    new Handler.Services.RabbitConfigService(rabbitConfig)
+);
+builder.Services.AddSingleton<RabbitMQ.Client.IConnection>(sp =>
+{
+    var config = sp.GetRequiredService<Handler.Services.RabbitConfig>();
+    var factory = new RabbitMQ.Client.ConnectionFactory
+    {
+        HostName = config.Host,
+        Port = config.Port,
+        UserName = config.UserName,
+        Password = config.Password,
+        VirtualHost = config.VirtualHost
+    };
+    return factory.CreateConnection();
+});
+
+// Configuración de autenticación JWT
 var jwtSettings = builder.Configuration.GetSection("Jwt");
 var key = jwtSettings["Key"];
 var issuer = jwtSettings["Issuer"];
@@ -33,27 +58,6 @@ builder.Services.AddAuthentication(options =>
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key ?? string.Empty))
         };
     });
-// Recuperar la configuración de RabbitMQ desde appsettings.json
-var rabbitConfig = builder.Configuration.GetSection("RabbitMQ").Get<Handler.Services.RabbitConfig>();
-builder.Services.AddSingleton<Handler.Services.RabbitConfig>(rabbitConfig ?? new Handler.Services.RabbitConfig());
-// Registrar RabbitConfigService usando el objeto de configuración
-builder.Services.AddSingleton<Handler.Services.IRabbitConfigService>(sp =>
-    new Handler.Services.RabbitConfigService(sp.GetRequiredService<Handler.Services.RabbitConfig>())
-);
-// Registrar la conexión RabbitMQ como singleton usando la configuración
-builder.Services.AddSingleton<RabbitMQ.Client.IConnection>(sp =>
-{
-    var config = sp.GetRequiredService<Handler.Services.RabbitConfig>();
-    var factory = new RabbitMQ.Client.ConnectionFactory
-    {
-        HostName = config.Host,
-        Port = config.Port,
-        UserName = config.UserName,
-        Password = config.Password,
-        VirtualHost = config.VirtualHost
-    };
-    return factory.CreateConnection();
-});
 
 // Servicios
 builder.Services.AddControllers();

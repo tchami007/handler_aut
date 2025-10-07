@@ -56,5 +56,21 @@ namespace Handler.Controllers
                 return BadRequest(ex.Message);
             }
         }
+        /// <summary>
+        /// Recupera todas las solicitudes procesadas para una cuenta específica, ordenadas por fecha real ascendente.
+        /// </summary>
+        [HttpGet("cuenta/{numeroCuenta}")]
+        public IActionResult GetSolicitudesPorCuenta(long numeroCuenta)
+        {
+            try
+            {
+                var solicitudes = _solicitudService.GetSolicitudesPorCuenta(numeroCuenta);
+                return Ok(solicitudes);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
     }
 }

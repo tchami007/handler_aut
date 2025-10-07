@@ -21,6 +21,10 @@ namespace Handler.Infrastructure
                 entity.Property(e => e.Saldo)
                       .IsRequired()
                       .HasColumnType("decimal(18,2)");
+                // Configuración de control de concurrencia optimista
+                entity.Property(e => e.RowVersion)
+                      .IsRowVersion()
+                      .IsConcurrencyToken();
             });
 
             modelBuilder.Entity<SolicitudDebito>(entity =>

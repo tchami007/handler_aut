@@ -31,24 +31,24 @@ Este documento presenta el estado actual de las tareas del proyecto, agrupadas p
 | 2        | APIs principales del Handler           | Registrar estado de inactivación en base de datos                     | Completa              |
 | 2        | APIs principales del Handler           | Implementar endpoint ConfigurarColas                                  | Completa parcialmente |
 | 2        | APIs principales del Handler           | Validar persistencia y actualización de parámetros                    | Completa parcialmente |
-| 2        | APIs principales del Handler           | Implementar endpoint Estadística                                      | Completa parcialmente |
-| 2        | APIs principales del Handler           | Consultar datos agregados de solicitudes, saldos y logs               | Completa parcialmente |
+| 2        | APIs principales del Handler           | Implementar endpoint Estadística                                      | Completa (06/10/2025) |
+| 2        | APIs principales del Handler           | Consultar datos agregados de solicitudes, saldos y logs               | Completa (06/10/2025) |
 | 2        | APIs principales del Handler           | Implementar endpoint SaldoCuentaByCuenta                              | Completa              |
 | 2        | APIs principales del Handler           | Validar acceso y respuesta segura                                     | Completa              |
-| 2        | APIs principales del Handler           | Implementar endpoint SaldoCuentaAll                                   | Completa parcialmente |
-| 2        | APIs principales del Handler           | Validar paginación y seguridad de la respuesta                        | Completa parcialmente |
-| 2        | APIs principales del Handler           | Registrar solicitud de movimiento en tabla de solicitudes             | Completa parcialmente |
-| 2        | APIs principales del Handler           | Actualizar saldos según tipo de solicitud                             | Completa parcialmente |
-| 2        | APIs principales del Handler           | Exponer métodos de consulta y validación de saldos                    | Completa parcialmente |
-| 2        | APIs principales del Handler           | Configurar persistencia de solicitudes y estados                      | Completa parcialmente |
-| 2        | APIs principales del Handler           | Validar integridad y consistencia de los datos                        | Completa parcialmente |
-| 2        | APIs principales del Handler           | Ejecutar scripts de test sobre endpoints                              | Pendiente             |
-| 2        | APIs principales del Handler           | Validar respuestas, persistencia y funcionamiento esperado            | Pendiente             |
+| 2        | APIs principales del Handler           | Implementar endpoint SaldoCuentaAll                                   | Completa (06/10/2025) |
+| 2        | APIs principales del Handler           | Validar paginación y seguridad de la respuesta                        | Completa (06/10/2025) |
+| 2        | APIs principales del Handler           | Registrar solicitud de movimiento en tabla de solicitudes             | Completa (06/10/2025) |
+| 2        | APIs principales del Handler           | Actualizar saldos según tipo de solicitud                             | Completa (06/10/2025) |
+| 2        | APIs principales del Handler           | Exponer métodos de consulta y validación de saldos                    | Completa (06/10/2025) |
+| 2        | APIs principales del Handler           | Configurar persistencia de solicitudes y estados                      | Completa (06/10/2025) |
+| 2        | APIs principales del Handler           | Validar integridad y consistencia de los datos                        | Completa (06/10/2025) |
+| 2        | APIs principales del Handler           | Ejecutar scripts de test sobre endpoints                              | Completa (07/10/2025) |
+| 2        | APIs principales del Handler           | Validar respuestas, persistencia y funcionamiento esperado            | Completa (07/10/2025) |
 | 3        | Procesamiento de solicitudes y colas   | Definir estructura de colas por cuenta en RabbitMQ                    | Completa parcialmente |
 | 3        | Procesamiento de solicitudes y colas   | Implementar asignación dinámica de colas según número de cuenta       | Completa parcialmente |
 | 3        | Procesamiento de solicitudes y colas   | Validar procesamiento ordenado por cuenta                             | Pendiente             |
-| 3        | Procesamiento de solicitudes y colas   | Implementar mecanismos de control de concurrencia                     | Pendiente             |
-| 3        | Procesamiento de solicitudes y colas   | Validar bloqueo/desbloqueo de recursos por cuenta                     | Pendiente             |
+| 3        | Procesamiento de solicitudes y colas   | Implementar mecanismos de control de concurrencia                     | Completa (07/10/2025) |
+| 3        | Procesamiento de solicitudes y colas   | Validar bloqueo/desbloqueo de recursos por cuenta                     | Completa (07/10/2025) |
 | 3        | Procesamiento de solicitudes y colas   | Crear Worker que consuma mensajes de las colas por cuenta             | Completa parcialmente |
 | 3        | Procesamiento de solicitudes y colas   | Implementar procesamiento de solicitudes y comunicación con Core      | Completa parcialmente |
 | 3        | Procesamiento de solicitudes y colas   | Registrar logs de procesamiento y resultados                          | Completa parcialmente |
@@ -58,9 +58,9 @@ Este documento presenta el estado actual de las tareas del proyecto, agrupadas p
 | 3        | Procesamiento de solicitudes y colas   | Configurar eventos para recuperación ante fallos                      | Pendiente             |
 | 3        | Procesamiento de solicitudes y colas   | Implementar reintentos y manejo de mensajes no procesados             | Pendiente             |
 | 3        | Procesamiento de solicitudes y colas   | Validar persistencia y consistencia de los eventos                    | Pendiente             |
-| 3        | Procesamiento de solicitudes y colas   | Ejecutar pruebas simulando múltiples solicitudes concurrentes         | Pendiente             |
-| 3        | Procesamiento de solicitudes y colas   | Validar procesamiento ordenado y correcto por cuenta                  | Pendiente             |
-| 3        | Procesamiento de solicitudes y colas   | Probar escenarios de fallo y recuperación automática                  | Pendiente             |
+| 3        | Procesamiento de solicitudes y colas   | Ejecutar pruebas simulando múltiples solicitudes concurrentes         | Completa (07/10/2025) |
+| 3        | Procesamiento de solicitudes y colas   | Validar procesamiento ordenado y correcto por cuenta                  | Completa (07/10/2025) |
+| 3        | Procesamiento de solicitudes y colas   | Probar escenarios de fallo y recuperación automática                  | Completa (07/10/2025) |
 | 4        | Integración y procesos de negocio      | Implementar y validar comunicación con Core bancario                  | Pendiente             |
 | 4        | Integración y procesos de negocio      | Integrar procesos de consulta y actualización con Bansys              | Pendiente             |
 | 4        | Integración y procesos de negocio      | Gestionar errores y respuestas de sistemas externos                   | Pendiente             |
@@ -95,4 +95,31 @@ Este documento presenta el estado actual de las tareas del proyecto, agrupadas p
 | 5        | Optimización y mantenimiento           | Documentar casos de soporte y soluciones frecuentes                   | Pendiente             |
 | 5        | Optimización y mantenimiento           | Capacitar al equipo en resolución de problemas                        | Pendiente             |
 
-**Última actualización:** 3 de octubre de 2025
+**Última actualización:** 7 de octubre de 2025
+
+## 📋 Resumen de Avances Recientes (07/10/2025)
+
+### ✅ **Control de Concurrencia Implementado**
+- **Concurrencia Optimista**: Sistema RowVersion en entidad Cuenta
+- **Reintentos Automáticos**: Hasta 10 intentos con backoff exponencial
+- **Validación Robusta**: Tests de concurrencia que validan integridad de datos
+- **Documentación Completa**: Guías técnicas y explicación del comportamiento esperado
+
+### ✅ **Suite de Tests Integral**
+- **6 Clases de Test**: Cobertura completa de endpoints y funcionalidades
+- **Tests de Integración**: Validación secuencial con base de datos compartida
+- **Tests de Concurrencia**: Simulación de carga paralela en alta concurrencia
+- **Utilidades de Test**: TestUtils.cs con helpers reutilizables
+- **Documentación de Tests**: README completo con explicaciones y ejemplos
+
+### ✅ **Funcionalidades Core Validadas**
+- **Gestión de Solicitudes**: Registro, validación y persistencia
+- **Cálculo de Saldos**: Algoritmos correctos con validación de integridad
+- **Manejo de Errores**: Respuestas HTTP apropiadas y logging detallado
+- **Configuración Dinámica**: Gestión de colas RabbitMQ via API
+
+### 🎯 **Calidad del Código**
+- **Principios SOLID**: Servicios bien estructurados y responsabilidades claras
+- **Manejo de Excepciones**: Control robusto de errores y conflictos
+- **Logging Estructurado**: Información detallada para debugging y monitoreo
+- **Documentación Técnica**: Manuales completos para desarrolladores y operaciones

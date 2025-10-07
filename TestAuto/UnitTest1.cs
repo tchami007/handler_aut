@@ -1,4 +1,6 @@
-﻿using Xunit;
+﻿// Archivo eliminado: solo se mantiene el test de colas
+// Eliminado: solo se mantiene el test de colas
+using Xunit;
 
 namespace TestAuto
 {
