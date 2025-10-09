@@ -2,6 +2,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using Microsoft.Extensions.Logging;
 
 namespace Handler.Services
 {
@@ -14,10 +15,12 @@ namespace Handler.Services
     public class AuthService : IAuthService
     {
         private readonly IConfiguration _config;
+        private readonly ILogger<AuthService> _logger;
 
-        public AuthService(IConfiguration config)
+        public AuthService(IConfiguration config, ILogger<AuthService> logger)
         {
             _config = config;
+            _logger = logger;
         }
 
         public JwtConfigValues GetJwtConfigValues()
@@ -47,9 +50,9 @@ namespace Handler.Services
             {
                 var jwtConfig = _config.GetSection("Jwt");
                 // Seguimiento de valores recuperados
-                Console.WriteLine($"[AuthService] JwtConfig.SecretKey: {jwtConfig["SecretKey"]}");
-                Console.WriteLine($"[AuthService] JwtConfig.Issuer: {jwtConfig["Issuer"]}");
-                Console.WriteLine($"[AuthService] JwtConfig.Audience: {jwtConfig["Audience"]}");
+                _logger.LogDebug("JwtConfig.SecretKey: {SecretKey}", jwtConfig["SecretKey"]);
+                _logger.LogDebug("JwtConfig.Issuer: {Issuer}", jwtConfig["Issuer"]);
+                _logger.LogDebug("JwtConfig.Audience: {Audience}", jwtConfig["Audience"]);
 
                 var claims = new[]
                 {
@@ -66,7 +69,7 @@ namespace Handler.Services
                     expires: DateTime.Now.AddHours(1),
                     signingCredentials: creds
                 );
-                Console.WriteLine($"[AuthService] Token generado para usuario: {usuario.Username}");
+                _logger.LogInformation("Token generado para usuario: {Username}", usuario.Username);
                 return new JwtSecurityTokenHandler().WriteToken(token);
             }
 

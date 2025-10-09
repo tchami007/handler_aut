@@ -1,6 +1,10 @@
+
 using Handler.Controllers.Dtos;
 using Handler.Infrastructure;
 using Handler.Models;
+using System.Data;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 
 namespace Handler.Services
@@ -11,21 +15,32 @@ namespace Handler.Services
     /// </summary>
     public class SolicitudService : ISolicitudService
     {
-    private readonly HandlerDbContext _db;
+    private readonly ICuentaRepository _cuentaRepository;
+    private readonly ISolicitudRepository _solicitudRepository;
+    private readonly HandlerDbContext _db; // Para transacciones serializables
     private readonly RabbitMqPublisher _publisher;
     private readonly IRabbitConfigService _configService;
     private readonly IHandlerStatusService _statusService;
-    private readonly bool seguimientoHabilitado = true; // Cambia a 'false' para ocultar logs de seguimiento
+    private readonly ILogger<SolicitudService> _logger;
+
+    // Configuración de reintentos y espera
+    private readonly int cantidadReintentos = 10;
+    private readonly int tiempoMinimoEsperaMs = 50;
+    private readonly int tiempoMaximoEsperaMs = 100;
 
     /// <summary>
     /// Constructor con inyección de dependencias.
+    /// Nota: Mantiene DbContext para transacciones serializables complejas.
     /// </summary>
-        public SolicitudService(HandlerDbContext db, RabbitMqPublisher publisher, IRabbitConfigService configService, IHandlerStatusService statusService)
+        public SolicitudService(ICuentaRepository cuentaRepository, ISolicitudRepository solicitudRepository, HandlerDbContext db, RabbitMqPublisher publisher, IRabbitConfigService configService, IHandlerStatusService statusService, ILogger<SolicitudService> logger)
         {
+            _cuentaRepository = cuentaRepository;
+            _solicitudRepository = solicitudRepository;
             _db = db;
             _publisher = publisher;
             _configService = configService;
             _statusService = statusService;
+            _logger = logger;
         }
 
         private int CalcularCola(long numeroCuenta)
@@ -34,13 +49,16 @@ namespace Handler.Services
         /// </summary>
         {
             var config = _configService.GetConfig();
-            int cantidadColas = config.Colas?.Count ?? 1;
+            int cantidadColas = config.Colas?.Count ?? 0;
+            
+            // Si no hay colas configuradas, usar cola por defecto
+            if (cantidadColas == 0)
+            {
+                return 1;
+            }
+            
             int resultadoModulo = (int)(numeroCuenta % cantidadColas);
             int colaDestino = resultadoModulo + 1;
-            if (seguimientoHabilitado)
-            {
-                Console.WriteLine($"[Seguimiento][CalcularCola] numeroCuenta={numeroCuenta}, cantidadColas={cantidadColas}, resultadoModulo={resultadoModulo}, colaDestino={colaDestino}");
-            }
             // Ajuste: las colas van de cola_1 a cola_N
             return colaDestino;
         }
@@ -53,20 +71,19 @@ namespace Handler.Services
         /// <param name="dto">Datos de la solicitud a registrar</param>
         /// <returns>DTO con el resultado de la operación, saldo y estado</returns>
         {
-            // Implementación de control de concurrencia optimista usando RowVersion
-            // Si ocurre un conflicto de concurrencia, se reintenta hasta 10 veces
-
-            int reintentos = 10;
+            // Implementación con reintentos para manejar conflictos de concurrencia
+            int reintentos = cantidadReintentos;
             
             while (reintentos-- > 0)
             {
-                using (var transaction = _db.Database.BeginTransaction())
+                try
                 {
                     // Validar estado del handler
                     if (!_statusService.EstaActivo())
                     {
                         return new SolicitudResultadoDto { Id = 0, Saldo = 0, Status = 99 };
                     }
+
                     int status = 0;
                     decimal saldoFinal = 0;
                     var solicitud = new SolicitudDebito
@@ -78,6 +95,7 @@ namespace Handler.Services
                         NumeroComprobante = dto.NumeroComprobante,
                         Monto = dto.Monto
                     };
+
                     // Buscar la cuenta
                     var cuenta = _db.Cuentas.FirstOrDefault(c => c.Numero == dto.NumeroCuenta);
                     if (cuenta == null)
@@ -91,6 +109,7 @@ namespace Handler.Services
                     {
                         solicitud.CuentaId = cuenta.Id;
                         saldoFinal = cuenta.Saldo;
+                        
                         // Control de idempotencia
                         var existe = _db.SolicitudesDebito.Any(s =>
                             s.CuentaId == cuenta.Id &&
@@ -136,64 +155,77 @@ namespace Handler.Services
                     solicitud.SaldoRespuesta = saldoFinal;
                     solicitud.CodigoEstado = status;
                     _db.SolicitudesDebito.Add(solicitud);
+                    
+                    _db.SaveChanges();
+
+                    // Calcular la cola destino
+                    int colaDestino = CalcularCola(dto.NumeroCuenta);
+                    string nombreCola = $"cola_{colaDestino}";
+
+                    // Usar el nuevo DTO para el mensaje a RabbitMQ
+                    var mensajeDto = new SolicitudRabbitDto
+                    {
+                        Id = solicitud.Id,
+                        TipoMovimiento = dto.TipoMovimiento,
+                        Importe = dto.Monto,
+                        NumeroCuenta = dto.NumeroCuenta,
+                        FechaMovimiento = DateTime.UtcNow,
+                        NumeroComprobante = dto.NumeroComprobante,
+                        Contrasiento = null,
+                        ConnectionStringBanksys = "<CONNECTION_STRING>"
+                    };
+
+                    // Serializar el mensaje
+                    var mensaje = System.Text.Json.JsonSerializer.Serialize(mensajeDto);
+
+                    // Publicar el mensaje en la cola correspondiente
                     try
                     {
-                        _db.SaveChanges();
-                        // Si SaveChanges fue exitoso, no hubo conflicto de concurrencia
-                        Console.WriteLine($"[Solicitud] Registrada solicitud Id={solicitud.Id}, cuenta={dto.NumeroCuenta}, monto={dto.Monto}, tipo={dto.TipoMovimiento}, comprobante={dto.NumeroComprobante}, estado={solicitud.Estado}, saldoRespuesta={solicitud.SaldoRespuesta}");
-
-                        // Calcular la cola destino
-                        int colaDestino = CalcularCola(dto.NumeroCuenta);
-                        string nombreCola = $"cola_{colaDestino}";
-                        if (seguimientoHabilitado)
-                        {
-                            Console.WriteLine($"[Seguimiento][RegistrarSolicitudConSaldo] Asignando solicitud Id={solicitud.Id} a la cola: {nombreCola} (cuenta={dto.NumeroCuenta})");
-                        }
-                        Console.WriteLine($"[RabbitMQ] Enviando mensaje a la cola: {nombreCola}");
-
-                        // Usar el nuevo DTO para el mensaje a RabbitMQ
-                        var mensajeDto = new SolicitudRabbitDto
-                        {
-                            Id = solicitud.Id,
-                            TipoMovimiento = dto.TipoMovimiento,
-                            Importe = dto.Monto,
-                            NumeroCuenta = dto.NumeroCuenta,
-                            FechaMovimiento = DateTime.UtcNow,
-                            NumeroComprobante = dto.NumeroComprobante,
-                            Contrasiento = null,
-                            ConnectionStringBanksys = "<CONNECTION_STRING>"
-                        };
-
-                        // Serializar el mensaje
-                        var mensaje = System.Text.Json.JsonSerializer.Serialize(mensajeDto);
-
-                        // Publicar el mensaje en la cola correspondiente
                         _publisher.Publish(mensaje, nombreCola);
-                        Console.WriteLine($"[RabbitMQ] Mensaje publicado: {mensaje}");
-
-                        // Confirmar la transacción
-                        transaction.Commit();
-
-                        return new SolicitudResultadoDto { Id = solicitud.Id, Saldo = solicitud.SaldoRespuesta, Status = status, Cola = nombreCola };
                     }
-                    catch (Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException)
+                    catch (Exception ex)
                     {
-                        // Si ocurre un conflicto de concurrencia, se reintenta
-                        Console.WriteLine($"[Concurrencia] Conflicto detectado al actualizar cuenta {dto.NumeroCuenta}. Reintentando... ({reintentos} restantes)");
-                        transaction.Rollback();
-                        if (reintentos == 0)
-                        {
-                            // Documentar el error y devolver rechazo
-                            Console.WriteLine($"[Concurrencia] No se pudo resolver el conflicto de concurrencia tras varios intentos para cuenta {dto.NumeroCuenta}.");
-                            return new SolicitudResultadoDto { Id = 0, Saldo = 0, Status = 98 };
-                        }
-                        // Esperar un pequeño tiempo aleatorio para evitar colisiones repetidas
-                        System.Threading.Thread.Sleep(new Random().Next(50, 100));
-                        continue;
+                        _logger.LogError(ex, "No se pudo publicar mensaje en RabbitMQ");
+                        // Continúa sin fallar - RabbitMQ es opcional para el registro
                     }
+
+                    return new SolicitudResultadoDto { Id = solicitud.Id, Saldo = solicitud.SaldoRespuesta, Status = status, Cola = nombreCola };
+                }
+                catch (Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException ex)
+                {
+                    // Si ocurre un conflicto de concurrencia, se reintenta
+                    _logger.LogWarning(ex, "Conflicto detectado al actualizar cuenta {NumeroCuenta}. Reintentando... ({Reintentos} restantes)", dto.NumeroCuenta, reintentos);
+                    if (reintentos == 0)
+                    {
+                        // Documentar el error y devolver rechazo
+                        _logger.LogError("No se pudo resolver el conflicto de concurrencia tras varios intentos para cuenta {NumeroCuenta}", dto.NumeroCuenta);
+                        return new SolicitudResultadoDto { Id = 0, Saldo = 0, Status = 98 };
+                    }
+                    // Esperar un pequeño tiempo aleatorio para evitar colisiones repetidas
+                    System.Threading.Thread.Sleep(new Random().Next(tiempoMinimoEsperaMs, tiempoMaximoEsperaMs));
+                    continue;
+                }
+                catch (Exception ex) when (ex.Message.Contains("deadlock") || ex.Message.Contains("timeout") || ex.Message.Contains("lock"))
+                {
+                    // Manejo específico para deadlocks, timeouts y problemas de bloqueo
+                    _logger.LogWarning(ex, "Problema de bloqueo detectado para cuenta {NumeroCuenta}. Reintentando... ({Reintentos} restantes)", dto.NumeroCuenta, reintentos);
+                    if (reintentos == 0)
+                    {
+                        _logger.LogError("No se pudo completar la operación para cuenta {NumeroCuenta} después de {CantidadReintentos} reintentos por bloqueo", dto.NumeroCuenta, cantidadReintentos);
+                        return new SolicitudResultadoDto { Id = 0, Saldo = 0, Status = 97 };
+                    }
+                    // Esperar un pequeño tiempo aleatorio para evitar colisiones repetidas
+                    System.Threading.Thread.Sleep(new Random().Next(tiempoMinimoEsperaMs, tiempoMaximoEsperaMs));
+                    continue;
+                }
+                catch (Exception ex)
+                {
+                    // Manejo de errores críticos no recuperables
+                    _logger.LogError(ex, "Error crítico en RegistrarSolicitudConSaldo para cuenta {NumeroCuenta}", dto.NumeroCuenta);
+                    return new SolicitudResultadoDto { Id = 0, Saldo = 0, Status = 96 };
                 }
             }
-            // Si llega aquí, algo falló
+            // Si llega aquí, se agotaron los reintentos
             return new SolicitudResultadoDto { Id = 0, Saldo = 0, Status = 97 };
         }
         /// <summary>
@@ -201,50 +233,47 @@ namespace Handler.Services
         /// </summary>
         public List<Handler.Controllers.Dtos.SolicitudDebitoDto> GetSolicitudesProcesadas()
         {
-            return _db.SolicitudesDebito
-                .OrderByDescending(s => s.FechaReal)
-                .Select(s => new Handler.Controllers.Dtos.SolicitudDebitoDto
-                {
-                    Id = s.Id,
-                    CuentaId = s.CuentaId,
-                    Monto = s.Monto,
-                    FechaSolicitud = s.FechaSolicitud,
-                    FechaReal = s.FechaReal,
-                    Estado = s.Estado,
-                    CodigoEstado = s.CodigoEstado,
-                    TipoMovimiento = s.TipoMovimiento,
-                    MovimientoOriginalId = s.MovimientoOriginalId,
-                    NumeroComprobante = s.NumeroComprobante,
-                    SaldoRespuesta = s.SaldoRespuesta
-                })
-                .ToList();
+            var solicitudes = _solicitudRepository.GetAllAsync().Result;
+            return solicitudes.Select(s => new Handler.Controllers.Dtos.SolicitudDebitoDto
+            {
+                Id = s.Id,
+                CuentaId = s.CuentaId,
+                Monto = s.Monto,
+                FechaSolicitud = s.FechaSolicitud,
+                FechaReal = s.FechaReal,
+                Estado = s.Estado,
+                CodigoEstado = s.CodigoEstado,
+                TipoMovimiento = s.TipoMovimiento,
+                MovimientoOriginalId = s.MovimientoOriginalId,
+                NumeroComprobante = s.NumeroComprobante,
+                SaldoRespuesta = s.SaldoRespuesta
+            }).ToList();
         }
+        
         /// <summary>
         /// Recupera todas las solicitudes procesadas para una cuenta específica, ordenadas por fecha real ascendente.
         /// </summary>
         public List<Handler.Controllers.Dtos.SolicitudDebitoDto> GetSolicitudesPorCuenta(long numeroCuenta)
         {
-            var cuenta = _db.Cuentas.FirstOrDefault(c => c.Numero == numeroCuenta);
+            var cuenta = _cuentaRepository.GetByNumeroAsync(numeroCuenta).Result;
             if (cuenta == null)
                 return new List<Handler.Controllers.Dtos.SolicitudDebitoDto>();
-            return _db.SolicitudesDebito
-                .Where(s => s.CuentaId == cuenta.Id)
-                .OrderBy(s => s.FechaReal)
-                .Select(s => new Handler.Controllers.Dtos.SolicitudDebitoDto
-                {
-                    Id = s.Id,
-                    CuentaId = s.CuentaId,
-                    Monto = s.Monto,
-                    FechaSolicitud = s.FechaSolicitud,
-                    FechaReal = s.FechaReal,
-                    Estado = s.Estado,
-                    CodigoEstado = s.CodigoEstado,
-                    TipoMovimiento = s.TipoMovimiento,
-                    MovimientoOriginalId = s.MovimientoOriginalId,
-                    NumeroComprobante = s.NumeroComprobante,
-                    SaldoRespuesta = s.SaldoRespuesta
-                })
-                .ToList();
+                
+            var solicitudes = _solicitudRepository.GetByCuentaIdAsync(cuenta.Id).Result;
+            return solicitudes.Select(s => new Handler.Controllers.Dtos.SolicitudDebitoDto
+            {
+                Id = s.Id,
+                CuentaId = s.CuentaId,
+                Monto = s.Monto,
+                FechaSolicitud = s.FechaSolicitud,
+                FechaReal = s.FechaReal,
+                Estado = s.Estado,
+                CodigoEstado = s.CodigoEstado,
+                TipoMovimiento = s.TipoMovimiento,
+                MovimientoOriginalId = s.MovimientoOriginalId,
+                NumeroComprobante = s.NumeroComprobante,
+                SaldoRespuesta = s.SaldoRespuesta
+            }).ToList();
         }
     }
 }

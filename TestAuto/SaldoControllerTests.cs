@@ -2,6 +2,7 @@ using System.Net;
 using System.Threading.Tasks;
 using Xunit;
 using Microsoft.AspNetCore.Mvc.Testing;
+using System;
 
 namespace TestAuto
 {
@@ -28,6 +29,9 @@ namespace TestAuto
             // Inicializar cuentas primero (como en InitControllerTests)
             var initResponse = await client.PostAsync("/api/init/cuentas", null);
             Assert.Equal(HttpStatusCode.OK, initResponse.StatusCode);
+            
+            // Esperar un momento para que la inicialización se complete
+            await Task.Delay(100);
             
             // Asegurar que existan cuentas (las cuentas deberían existir del test de inicialización previo)
             long numeroCuenta = 1000000001;
