@@ -1,170 +1,82 @@
-using Handler.Infrastructure;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.OpenApi.Models;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.IdentityModel.Tokens;
-using System.Text;
-using Handler.Services;
+using Handler.Extensions;
+using Serilog;
 
-var builder = WebApplication.CreateBuilder(args);
+// Configurar Serilog primero
+Log.Logger = new LoggerConfiguration()
+    .ReadFrom.Configuration(new ConfigurationBuilder()
+        .AddJsonFile("appsettings.json")
+        .AddJsonFile("appsettings.jwt.json", optional: false)
+        .Build())
+    .Enrich.FromLogContext()
+    .CreateLogger();
 
-// Cargar configuración JWT
-builder.Configuration.AddJsonFile("appsettings.jwt.json", optional: false, reloadOnChange: true);
-
-
-// Leer RabbitConfig.json para la configuración de RabbitMQ y colas
-var rabbitConfigPath = builder.Configuration["ConfigPath"] ?? "Handler/Config/RabbitConfig.json";
-var rabbitConfigJson = File.ReadAllText(rabbitConfigPath);
-var rabbitConfig = System.Text.Json.JsonSerializer.Deserialize<Handler.Services.RabbitConfig>(rabbitConfigJson) ?? new Handler.Services.RabbitConfig();
-builder.Services.AddSingleton<Handler.Services.RabbitConfig>(rabbitConfig);
-builder.Services.AddSingleton<Handler.Services.IRabbitConfigService>(sp =>
-    new Handler.Services.RabbitConfigService(rabbitConfig)
-);
-builder.Services.AddSingleton<RabbitMQ.Client.IConnection>(sp =>
+try
 {
-    var config = sp.GetRequiredService<Handler.Services.RabbitConfig>();
-    var factory = new RabbitMQ.Client.ConnectionFactory
-    {
-        HostName = config.Host,
-        Port = config.Port,
-        UserName = config.UserName,
-        Password = config.Password,
-        VirtualHost = config.VirtualHost
-    };
-    return factory.CreateConnection();
-});
+    var builder = WebApplication.CreateBuilder(args);
 
-// Configuración de autenticación JWT
-var jwtSettings = builder.Configuration.GetSection("Jwt");
-var key = jwtSettings["Key"];
-var issuer = jwtSettings["Issuer"];
-var audience = jwtSettings["Audience"];
+    // Usar Serilog para logging
+    builder.Host.UseSerilog();
 
-builder.Services.AddAuthentication(options =>
-{
-    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-})
-    .AddJwtBearer(options =>
+    // Cargar configuración JWT adicional
+    builder.Configuration.AddJsonFile("appsettings.jwt.json", optional: false, reloadOnChange: true);
+
+    Log.Information("🚀 Iniciando configuración de Handler API...");
+
+    // Configurar servicios de manera organizada
+    builder.Services.AddControllers();
+    builder.Services.AddDatabaseServices(builder.Configuration);
+    builder.Services.AddJwtAuthentication(builder.Configuration);
+    builder.Services.AddRabbitMqServices(builder.Configuration);
+    builder.Services.AddBusinessServices();
+    builder.Services.AddSolicitudSharedServices(); // Agregar servicios compartidos
+    builder.Services.AddSolicitudCommandService(builder.Configuration);
+    builder.Services.AddCorsConfiguration(builder.Configuration);
+    builder.Services.AddSwaggerConfiguration();
+
+    Log.Information("✅ Servicios configurados correctamente");
+
+    var app = builder.Build();
+
+    // Pipeline de middleware
+    if (app.Environment.IsDevelopment())
     {
-        options.TokenValidationParameters = new TokenValidationParameters
+        Log.Information("🔧 Modo desarrollo: Habilitando Swagger UI");
+        app.UseSwagger();
+        app.UseSwaggerUI(c =>
         {
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            ValidIssuer = issuer,
-            ValidAudience = audience,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key ?? string.Empty))
-        };
-    });
+            c.SwaggerEndpoint("/swagger/v1/swagger.json", "Handler API v1");
+            c.RoutePrefix = string.Empty; // Swagger en la raíz
+        });
+    }
 
-// Servicios
-builder.Services.AddControllers();
-// Configuración de CORS por defecto
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("AllowAll",
-        policy => policy.AllowAnyOrigin()
-                          .AllowAnyHeader()
-                          .AllowAnyMethod());
-});
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(options =>
-{
-    options.SwaggerDoc("v1", new OpenApiInfo { Title = "Handler API", Version = "v1" });
-    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    // Configurar pipeline en orden correcto
+    app.UseCors("AllowAll");
+    app.UseHttpsRedirection();
+    app.UseAuthentication();
+    app.UseAuthorization();
+    app.MapControllers();
+
+    Log.Information("🎯 Handler API configurado y listo para ejecutar");
+
+    // Log de URLs configuradas
+    var configuredUrls = app.Configuration["urls"];
+    if (!string.IsNullOrEmpty(configuredUrls))
     {
-        Name = "Authorization",
-        Type = SecuritySchemeType.Http,
-        Scheme = "Bearer",
-        BearerFormat = "JWT",
-        In = ParameterLocation.Header,
-        Description = "Ingrese el token JWT en el campo: Bearer {token}"
-    });
-    options.AddSecurityRequirement(new OpenApiSecurityRequirement
-    {
-        {
-            new OpenApiSecurityScheme
-            {
-                Reference = new OpenApiReference
-                {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
-            },
-            new string[] {}
-        }
-    });
-});
-builder.Services.AddSingleton<RabbitMqPublisher>(sp =>
+        Log.Information("🌐 URLs configuradas: {URLs}", configuredUrls);
+    }
+
+    app.Run();
+}
+catch (Exception ex)
 {
-    var configService = sp.GetRequiredService<IRabbitConfigService>();
-    var connection = sp.GetRequiredService<RabbitMQ.Client.IConnection>();
-    return new RabbitMqPublisher(configService, connection);
-});
-builder.Services.AddDbContext<HandlerDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
-
-// Servicio de estado del Handler
-builder.Services.AddSingleton<IHandlerStatusService, HandlerStatusService>();
-// Servicio de configuración de RabbitMQ
-builder.Services.AddSingleton<IRabbitConfigService, RabbitConfigService>();
-// Servicio de publicación RabbitMQ
-builder.Services.AddSingleton<RabbitMqPublisher>();
-// Servicio de estadísticas (scoped)
-builder.Services.AddScoped<IEstadisticaService, EstadisticaService>();
-
-// Servicio de saldos (scoped)
-builder.Services.AddScoped<ISaldoService, SaldoService>();
-// Servicio de inicialización de cuentas (scoped)
-builder.Services.AddScoped<ICuentaInitService, CuentaInitService>();
-// Servicio de inicialización de cuentas Banksys (scoped)
-builder.Services.AddScoped<ICuentaBanksysInitService, CuentaBanksysInitService>();
-// Servicio de autenticación JWT
-builder.Services.AddSingleton<IAuthService, AuthService>();
-
-// Servicio de solicitudes (scoped)
-builder.Services.AddScoped<ISolicitudService, SolicitudService>(sp =>
-    new Handler.Services.SolicitudService(
-        sp.GetRequiredService<HandlerDbContext>(),
-        sp.GetRequiredService<RabbitMqPublisher>(),
-        sp.GetRequiredService<IRabbitConfigService>(),
-        sp.GetRequiredService<IHandlerStatusService>()
-    )
-);
-
-// Servicios adicionales
-builder.Services.AddSingleton<IConfigColasService, ConfigColasService>();
-builder.Services.AddSingleton<IAuthService, AuthService>();
-
-var jwtConfig = builder.Configuration.GetSection("Jwt");
-// Solo una configuración JWT
-builder.Services.AddAuthorization();
-
-var app = builder.Build();
-
-// Middleware
-if (app.Environment.IsDevelopment())
+    Log.Fatal(ex, "❌ Error crítico durante el inicio de la aplicación");
+    throw;
+}
+finally
 {
-    app.UseSwagger();
-    app.UseSwaggerUI(c =>
-    {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Handler API v1");
-        c.RoutePrefix = string.Empty;
-    });
+    Log.CloseAndFlush();
 }
 
-// Activar CORS antes de los middlewares principales
-app.UseCors("AllowAll");
-
-app.UseHttpsRedirection();
-app.UseAuthentication();
-app.UseAuthorization();
-
-app.MapControllers();
-
-app.Run();
 // Necesario para pruebas de integración
 namespace Handler
 {

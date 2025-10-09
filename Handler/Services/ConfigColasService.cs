@@ -31,6 +31,11 @@ namespace Handler.Services
 
         public void SetColas(List<ColaDto> nuevasColas)
         {
+            // Límite máximo de colas basado en archivos de configuración del Worker disponibles
+            const int MAX_COLAS = 10;
+            if (nuevasColas.Count > MAX_COLAS)
+                throw new InvalidOperationException($"No se pueden configurar más de {MAX_COLAS} colas. Cantidad recibida: {nuevasColas.Count}");
+            
             var config = GetConfig();
             config.Colas = nuevasColas;
             config.CantidadColas = nuevasColas.Count;
@@ -50,6 +55,12 @@ namespace Handler.Services
         public string AgregarCola()
         {
             var config = GetConfig();
+            
+            // Límite máximo de colas basado en archivos de configuración del Worker disponibles
+            const int MAX_COLAS = 10;
+            if (config.Colas.Count >= MAX_COLAS)
+                throw new InvalidOperationException($"No se pueden agregar más colas. Límite máximo: {MAX_COLAS}");
+            
             int siguiente = 1;
             if (config.Colas.Count > 0)
             {

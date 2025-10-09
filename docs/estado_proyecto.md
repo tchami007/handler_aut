@@ -2,6 +2,10 @@
 
 Este documento presenta el estado actual de las tareas del proyecto, agrupadas por etapa y con número de etapa. El estado de cada tarea puede ser: completa, pendiente o completa parcialmente.
 
+**Fecha de última actualización:** 9 de octubre de 2025
+**Rama actual:** nueva-api-registro-solicitud
+**Framework:** .NET 9.0
+
 | Nº Etapa | Etapa                                 | Tarea/Subtarea                                                        | Estado                |
 |----------|---------------------------------------|-----------------------------------------------------------------------|-----------------------|
 | 1        | Configuración y estructura base        | Inicialización de la solución principal en .NET Core 8                | Completa              |
@@ -9,6 +13,11 @@ Este documento presenta el estado actual de las tareas del proyecto, agrupadas p
 | 1        | Configuración y estructura base        | Inicializar repositorio Git                                           | Completa              |
 | 1        | Configuración y estructura base        | Definir estructura de ramas (main, develop, feature)                  | Completa              |
 | 1        | Configuración y estructura base        | Crear carpetas: Controller, Service, Infrastructure, Model, Shared    | Completa              |
+| 1        | Configuración y estructura base        | Refactorizar Program.cs con Extension Methods                         | Completa (08/01/2025) |
+| 1        | Configuración y estructura base        | Eliminar duplicaciones y deuda técnica en configuración               | Completa (08/01/2025) |
+| 1        | Configuración y estructura base        | Implementar configuración modular y reutilizable                      | Completa (08/01/2025) |
+| 1        | Configuración y estructura base        | Mejorar manejo de errores en configuración de servicios               | Completa (08/01/2025) |
+| 1        | Configuración y estructura base        | Configurar CORS seguro y configurable por ambiente                    | Completa (08/01/2025) |
 | 1        | Configuración y estructura base        | Agregar archivos README en cada carpeta                               | Completa parcialmente |
 | 1        | Configuración y estructura base        | Instalar paquetes NuGet necesarios                                    | Completa              |
 | 1        | Configuración y estructura base        | Configurar archivos de settings (appsettings.json)                    | Completa              |
@@ -42,16 +51,33 @@ Este documento presenta el estado actual de las tareas del proyecto, agrupadas p
 | 2        | APIs principales del Handler           | Exponer métodos de consulta y validación de saldos                    | Completa (06/10/2025) |
 | 2        | APIs principales del Handler           | Configurar persistencia de solicitudes y estados                      | Completa (06/10/2025) |
 | 2        | APIs principales del Handler           | Validar integridad y consistencia de los datos                        | Completa (06/10/2025) |
+| 2        | APIs principales del Handler           | Mejorar manejo de excepciones en SolicitudService                     | Completa (08/01/2025) |
+| 2        | APIs principales del Handler           | Implementar clasificación de excepciones por tipo                     | Completa (08/01/2025) |
+| 2        | APIs principales del Handler           | Agregar reintentos inteligentes con backoff aleatorio                 | Completa (08/01/2025) |
+| 2        | APIs principales del Handler           | Implementar logging detallado por tipo de error                       | Completa (08/01/2025) |
+| 2        | APIs principales del Handler           | Crear controller para Cola de Comandos (SolicitudCommandController)   | Completa (08/01/2025) |
+| 2        | APIs principales del Handler           | Migrar a .NET 9.0 desde .NET 8.0                                     | Completa (09/10/2025) |
+| 2        | APIs principales del Handler           | Actualizar todos los paquetes NuGet a versiones compatibles           | Completa (09/10/2025) |
+| 2        | APIs principales del Handler           | Implementar capa de Infrastructure con Repositories                   | Completa (09/10/2025) |
+| 2        | APIs principales del Handler           | Crear servicios compartidos para reutilización (Shared folder)        | Completa (09/10/2025) |
+| 2        | APIs principales del Handler           | Refactorizar extensiones de configuración modular                     | Completa (09/10/2025) |
 | 2        | APIs principales del Handler           | Ejecutar scripts de test sobre endpoints                              | Completa (07/10/2025) |
 | 2        | APIs principales del Handler           | Validar respuestas, persistencia y funcionamiento esperado            | Completa (07/10/2025) |
-| 3        | Procesamiento de solicitudes y colas   | Definir estructura de colas por cuenta en RabbitMQ                    | Completa parcialmente |
-| 3        | Procesamiento de solicitudes y colas   | Implementar asignación dinámica de colas según número de cuenta       | Completa parcialmente |
-| 3        | Procesamiento de solicitudes y colas   | Validar procesamiento ordenado por cuenta                             | Pendiente             |
+| 3        | Procesamiento de solicitudes y colas   | Implementar arquitecutra de Cola de Comandos intercambiable           | Completa (08/01/2025) |
+| 3        | Procesamiento de solicitudes y colas   | Crear servicio con actualización inmediata de saldo (TX serializable) | Completa (08/01/2025) |
+| 3        | Procesamiento de solicitudes y colas   | Crear servicio con actualización diferida de saldo (background)       | Completa (08/01/2025) |
+| 3        | Procesamiento de solicitudes y colas   | Implementar interface común para servicios intercambiables            | Completa (08/01/2025) |
+| 3        | Procesamiento de solicitudes y colas   | Configurar intercambio dinámico via configuración                     | Completa (08/01/2025) |
+| 3        | Procesamiento de solicitudes y colas   | Definir estructura de colas por cuenta en RabbitMQ                    | Completa (09/10/2025) |
+| 3        | Procesamiento de solicitudes y colas   | Implementar asignación dinámica de colas según número de cuenta       | Completa (09/10/2025) |
+| 3        | Procesamiento de solicitudes y colas   | Validar procesamiento ordenado por cuenta                             | Completa (09/10/2025) |
 | 3        | Procesamiento de solicitudes y colas   | Implementar mecanismos de control de concurrencia                     | Completa (07/10/2025) |
 | 3        | Procesamiento de solicitudes y colas   | Validar bloqueo/desbloqueo de recursos por cuenta                     | Completa (07/10/2025) |
-| 3        | Procesamiento de solicitudes y colas   | Crear Worker que consuma mensajes de las colas por cuenta             | Completa parcialmente |
-| 3        | Procesamiento de solicitudes y colas   | Implementar procesamiento de solicitudes y comunicación con Core      | Completa parcialmente |
-| 3        | Procesamiento de solicitudes y colas   | Registrar logs de procesamiento y resultados                          | Completa parcialmente |
+| 3        | Procesamiento de solicitudes y colas   | Crear Worker que consuma mensajes de las colas por cuenta             | Completa (09/10/2025) |
+| 3        | Procesamiento de solicitudes y colas   | Implementar procesamiento de solicitudes y comunicación con Core      | Completa (09/10/2025) |
+| 3        | Procesamiento de solicitudes y colas   | Registrar logs de procesamiento y resultados                          | Completa (09/10/2025) |
+| 3        | Procesamiento de solicitudes y colas   | Crear proyecto Tools para utilidades de administración                | Completa (09/10/2025) |
+| 3        | Procesamiento de solicitudes y colas   | Implementar herramientas de limpieza de colas RabbitMQ                | Completa (09/10/2025) |
 | 3        | Procesamiento de solicitudes y colas   | Definir tiempo máximo de espera para respuesta del Core                | Pendiente             |
 | 3        | Procesamiento de solicitudes y colas   | Implementar lógica de autorización provisional ante timeout           | Pendiente             |
 | 3        | Procesamiento de solicitudes y colas   | Registrar estado provisional y actualizar al recibir respuesta        | Pendiente             |
@@ -94,32 +120,12 @@ Este documento presenta el estado actual de las tareas del proyecto, agrupadas p
 | 5        | Optimización y mantenimiento           | Definir proceso de reporte y seguimiento de incidencias               | Pendiente             |
 | 5        | Optimización y mantenimiento           | Documentar casos de soporte y soluciones frecuentes                   | Pendiente             |
 | 5        | Optimización y mantenimiento           | Capacitar al equipo en resolución de problemas                        | Pendiente             |
+| 6        | Documentación y análisis técnico       | Crear documentación de arquitectura de Cola de Comandos               | Completa (08/01/2025) |
+| 6        | Documentación y análisis técnico       | Documentar diferencias entre implementaciones de servicio             | Completa (08/01/2025) |
+| 6        | Documentación y análisis técnico       | Crear guía de intercambio de implementaciones                         | Completa (08/01/2025) |
+| 6        | Documentación y análisis técnico       | Análisis completo de deuda técnica en Program.cs                      | Completa (08/01/2025) |
+| 6        | Documentación y análisis técnico       | Documentar métricas de mejora en refactorización                      | Completa (08/01/2025) |
+| 6        | Documentación y análisis técnico       | Crear documentos de configuración completada                          | Completa (08/01/2025) |
 
-**Última actualización:** 7 de octubre de 2025
+**Última actualización:** 9 de octubre de 2025
 
-## 📋 Resumen de Avances Recientes (07/10/2025)
-
-### ✅ **Control de Concurrencia Implementado**
-- **Concurrencia Optimista**: Sistema RowVersion en entidad Cuenta
-- **Reintentos Automáticos**: Hasta 10 intentos con backoff exponencial
-- **Validación Robusta**: Tests de concurrencia que validan integridad de datos
-- **Documentación Completa**: Guías técnicas y explicación del comportamiento esperado
-
-### ✅ **Suite de Tests Integral**
-- **6 Clases de Test**: Cobertura completa de endpoints y funcionalidades
-- **Tests de Integración**: Validación secuencial con base de datos compartida
-- **Tests de Concurrencia**: Simulación de carga paralela en alta concurrencia
-- **Utilidades de Test**: TestUtils.cs con helpers reutilizables
-- **Documentación de Tests**: README completo con explicaciones y ejemplos
-
-### ✅ **Funcionalidades Core Validadas**
-- **Gestión de Solicitudes**: Registro, validación y persistencia
-- **Cálculo de Saldos**: Algoritmos correctos con validación de integridad
-- **Manejo de Errores**: Respuestas HTTP apropiadas y logging detallado
-- **Configuración Dinámica**: Gestión de colas RabbitMQ via API
-
-### 🎯 **Calidad del Código**
-- **Principios SOLID**: Servicios bien estructurados y responsabilidades claras
-- **Manejo de Excepciones**: Control robusto de errores y conflictos
-- **Logging Estructurado**: Información detallada para debugging y monitoreo
-- **Documentación Técnica**: Manuales completos para desarrolladores y operaciones

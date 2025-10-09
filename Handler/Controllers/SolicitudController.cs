@@ -25,7 +25,10 @@ namespace Handler.Controllers
             }
             catch (Exception ex)
             {
-                return BadRequest(ex.Message);
+                // Log del error completo para diagnosticar el problema
+                Console.WriteLine($"[ERROR] {ex.Message}");
+                Console.WriteLine($"[ERROR] StackTrace: {ex.StackTrace}");
+                return BadRequest($"Error: {ex.Message}");
             }
         }
 

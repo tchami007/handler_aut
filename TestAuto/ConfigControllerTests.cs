@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Xunit;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Handler.Controllers.Dtos;
+using System;
 
 namespace TestAuto
 {
@@ -18,6 +19,8 @@ namespace TestAuto
             _factory = factory;
         }
 
+
+        // Verifica que el endpoint GET /api/config/colas retorna 200 OK y la estructura esperada cuando el sistema está activo.
         [Fact]
         public async Task GetColas_SistemaActivo_Retorna_Ok()
         {
@@ -44,6 +47,7 @@ namespace TestAuto
             Assert.Equal("application/json", response.Content.Headers.ContentType?.MediaType);
         }
 
+        // Verifica que el endpoint GET /api/config/colas retorna 503 Service Unavailable cuando el sistema está inactivo.
         [Fact]
         public async Task GetColas_SistemaInactivo_Retorna_ServiceUnavailable()
         {
@@ -65,24 +69,33 @@ namespace TestAuto
             Assert.Equal(HttpStatusCode.OK, activarResponse.StatusCode);
         }
 
+        // Verifica que el endpoint GET /api/config/colas retorna la estructura correcta del JSON
         [Fact]
         public async Task GetColas_VerificarEstructuraRespuesta()
         {
             // Arrange
             var client = _factory.CreateClient();
             
-            // Activar el sistema
+            // Activar el sistema y esperar un momento
             var activarResponse = await client.PostAsync("/api/status/activar", null);
             Assert.Equal(HttpStatusCode.OK, activarResponse.StatusCode);
+            await Task.Delay(50); // Pequeña espera para asegurar activación
 
             // Agregar al menos una cola para tener contenido válido
-            var nuevaCola = new { nombre = "cola_test_estructura" };
+            var nuevaCola = new { nombre = "cola_test_estructura_" + DateTime.Now.Ticks };
             var jsonContent = new StringContent(JsonSerializer.Serialize(nuevaCola), Encoding.UTF8, "application/json");
             var agregarResponse = await client.PostAsync("/api/config/colas/agregar", jsonContent);
             Assert.Equal(HttpStatusCode.OK, agregarResponse.StatusCode);
 
             // Act
             var response = await client.GetAsync("/api/config/colas");
+            
+            // Debug: si hay error, mostrar información
+            if (response.StatusCode != HttpStatusCode.OK)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                throw new Exception($"Error en GetColas: {response.StatusCode} - {errorContent}");
+            }
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -105,6 +118,7 @@ namespace TestAuto
             }
         }
 
+        // Verifica que el endpoint POST /api/config/colas/agregar agrega una nueva cola correctamente cuando el sistema está activo.
         [Fact]
         public async Task AgregarCola_SistemaActivo_Retorna_Ok()
         {
@@ -143,6 +157,7 @@ namespace TestAuto
             Assert.Equal(colasIniciales + 1, configFinal?.Colas.Count);
         }
 
+        // Verifica que el endpoint POST /api/config/colas/agregar retorna 503 Service Unavailable cuando el sistema está inactivo.
         [Fact]
         public async Task AgregarCola_SistemaInactivo_Retorna_ServiceUnavailable()
         {
@@ -164,6 +179,7 @@ namespace TestAuto
             Assert.Equal(HttpStatusCode.OK, activarResponse.StatusCode);
         }
 
+        // Verifica que el nombre de la cola agregada sigue un patrón incremental (cola_N)
         [Fact]
         public async Task AgregarCola_VerificarNombreIncremental()
         {
@@ -195,6 +211,7 @@ namespace TestAuto
             Assert.Contains("agregada", resultado);
         }
 
+        // Verifica que el endpoint DELETE /api/config/colas/ultima retorna 200 OK cuando el sistema está activo.
         [Fact]
         public async Task EliminarUltimaCola_SistemaActivo_Retorna_Ok()
         {
@@ -243,6 +260,7 @@ namespace TestAuto
             Assert.Equal(colasAntes - 1, configDespues?.Colas.Count);
         }
 
+        // Verifica que el endpoint DELETE /api/config/colas/ultima retorna 503 Service Unavailable cuando el sistema está inactivo.
         [Fact]
         public async Task EliminarUltimaCola_SistemaInactivo_Retorna_ServiceUnavailable()
         {
@@ -264,8 +282,9 @@ namespace TestAuto
             Assert.Equal(HttpStatusCode.OK, activarResponse.StatusCode);
         }
 
+        // Verifica que no se pueden agregar más de 10 colas (límite basado en archivos de configuración del Worker)
         [Fact]
-        public async Task EliminarUltimaCola_SinColas_Retorna_BadRequest()
+        public async Task AgregarCola_LimiteMaximo_Retorna_BadRequest()
         {
             // Arrange
             var client = _factory.CreateClient();
@@ -274,30 +293,34 @@ namespace TestAuto
             var activarResponse = await client.PostAsync("/api/status/activar", null);
             Assert.Equal(HttpStatusCode.OK, activarResponse.StatusCode);
 
-            // Obtener configuración actual y eliminar todas las colas menos una
+            // Obtener configuración actual
             var configResponse = await client.GetAsync("/api/config/colas");
             var configContent = await configResponse.Content.ReadAsStringAsync();
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
             var config = JsonSerializer.Deserialize<RabbitConfigDto>(configContent, options);
             
-            // Eliminar colas hasta que quede solo una (si hay más de una)
-            while (config?.Colas.Count > 1)
+            // Agregar colas hasta llegar al límite de 10
+            while (config?.Colas.Count < 10)
             {
-                await client.DeleteAsync("/api/config/colas/ultima");
+                var agregarResponse = await client.PostAsync("/api/config/colas/agregar", null);
+                Assert.Equal(HttpStatusCode.OK, agregarResponse.StatusCode);
+                
                 configResponse = await client.GetAsync("/api/config/colas");
                 configContent = await configResponse.Content.ReadAsStringAsync();
                 config = JsonSerializer.Deserialize<RabbitConfigDto>(configContent, options);
             }
 
-            // Intentar eliminar la última cola (esto debería fallar)
-            // Note: Este test asume que el servicio no permite eliminar todas las colas
-            var response = await client.DeleteAsync("/api/config/colas/ultima");
+            // Verificar que tenemos exactamente 10 colas
+            Assert.Equal(10, config?.Colas.Count);
 
-            // Assert - puede ser BadRequest o OK dependiendo de la lógica de negocio
-            // Si permite eliminar todas: OK, si no permite: BadRequest
-            Assert.True(response.StatusCode == HttpStatusCode.BadRequest || 
-                       response.StatusCode == HttpStatusCode.OK, 
-                       $"Se esperaba BadRequest o OK, pero se obtuvo {response.StatusCode}");
+            // Act - Intentar agregar una cola más (la 11va)
+            var response = await client.PostAsync("/api/config/colas/agregar", null);
+
+            // Assert - Debe fallar con BadRequest
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            
+            var errorContent = await response.Content.ReadAsStringAsync();
+            Assert.Contains("Límite máximo: 10", errorContent);
         }
     }
 }

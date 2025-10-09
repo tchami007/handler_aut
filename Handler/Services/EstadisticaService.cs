@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 
 namespace Handler.Services
 {
@@ -17,13 +18,19 @@ namespace Handler.Services
 
     public class EstadisticaService : IEstadisticaService
     {
-        private readonly HandlerDbContext _db;
+        private readonly ISolicitudRepository _solicitudRepository;
+        private readonly ICuentaRepository _cuentaRepository;
+        private readonly ILogOperacionRepository _logRepository;
         private readonly IConnection _rabbitConnection;
+        private readonly ILogger<EstadisticaService> _logger;
 
-        public EstadisticaService(HandlerDbContext db, IConnection rabbitConnection)
+        public EstadisticaService(ISolicitudRepository solicitudRepository, ICuentaRepository cuentaRepository, ILogOperacionRepository logRepository, IConnection rabbitConnection, ILogger<EstadisticaService> logger)
         {
-            _db = db;
+            _solicitudRepository = solicitudRepository;
+            _cuentaRepository = cuentaRepository;
+            _logRepository = logRepository;
             _rabbitConnection = rabbitConnection;
+            _logger = logger;
         }
 
         /// <summary>
@@ -43,7 +50,7 @@ namespace Handler.Services
                 configPath = Path.Combine(projectRoot, "Handler", "Config", "RabbitConfig.json");
             if (!File.Exists(configPath))
             {
-                Console.WriteLine($"Advertencia: No se encontró el archivo de configuración de RabbitMQ en {configPath}");
+                _logger.LogWarning("No se encontró el archivo de configuración de RabbitMQ en {ConfigPath}", configPath);
                 return new List<string>();
             }
             var json = File.ReadAllText(configPath);
@@ -67,43 +74,47 @@ namespace Handler.Services
 
         public async Task<EstadisticaDto> GetEstadisticasAsync(string? tipoMovimiento = null)
         {
-            // Filtrar solicitudes por tipo de movimiento si se proporciona
-            var solicitudesQuery = _db.SolicitudesDebito.AsQueryable();
-
-            // Aplicar filtro por tipo de movimiento
+            // Obtener todas las solicitudes
+            var todasSolicitudes = await _solicitudRepository.GetAllAsync();
+            
+            // Filtrar por tipo de movimiento si se proporciona
             if (!string.IsNullOrEmpty(tipoMovimiento))
             {
-                // Aplicar filtro por tipo de movimiento
-                solicitudesQuery = solicitudesQuery.Where(s => s.TipoMovimiento == tipoMovimiento);
+                todasSolicitudes = todasSolicitudes
+                    .Where(s => s.TipoMovimiento == tipoMovimiento)
+                    .ToList();
             }
 
             // Obtener cantidad de solicitudes procesadas
-            var solicitudesProcesadas = await solicitudesQuery.CountAsync();
+            var solicitudesProcesadas = todasSolicitudes.Count;
 
             // Obtener cantidad de solicitudes por estado
-            var solicitudesPorEstado = await solicitudesQuery
-                .GroupBy(s => s.Estado)
-                .Select(g => new { Estado = g.Key ?? "", Cantidad = g.Count() })
-                .ToDictionaryAsync(x => x.Estado, x => x.Cantidad);
+            var solicitudesPorEstado = todasSolicitudes
+                .GroupBy(s => s.Estado ?? "")
+                .ToDictionary(g => g.Key, g => g.Count());
 
             // Obtener saldo total de todas las cuentas
-            var saldoTotalCuentas = await _db.Cuentas.SumAsync(c => c.Saldo);
+            var todasCuentas = await _cuentaRepository.GetAllAsync();
+            var saldoTotalCuentas = todasCuentas.Sum(c => c.Saldo);
 
             // Obtener cantidad de movimientos por tipo
-            var movimientosPorTipo = await _db.SolicitudesDebito
+            var todasSolicitudesParaTipos = await _solicitudRepository.GetAllAsync();
+            var movimientosPorTipo = todasSolicitudesParaTipos
                 .GroupBy(m => m.TipoMovimiento ?? "")
-                .Select(g => new { Tipo = g.Key, Cantidad = g.Count() })
-                .ToDictionaryAsync(x => x.Tipo, x => x.Cantidad);
+                .ToDictionary(g => g.Key, g => g.Count());
 
             // Obtener cantidad de errores registrados
-            var errores = await _db.LogsOperacion.CountAsync(l => l.Tipo == "error");
+            var errores = await _logRepository.GetCountByTipoAsync("error");
 
             // Obtener los 10 logs más recientes
-            var logsRecientes = await _db.LogsOperacion
-                .OrderByDescending(l => l.Fecha)
-                .Take(10)
-                .Select(l => new LogDto { Fecha = l.Fecha, Nivel = l.Tipo ?? "", Mensaje = l.Mensaje ?? "" })
-                .ToListAsync();
+            var logsRecientesRaw = await _logRepository.GetRecientesAsync(10);
+            var logsRecientes = logsRecientesRaw
+                .Select(l => new LogDto { 
+                    Fecha = l.Fecha, 
+                    Nivel = l.Tipo ?? "", 
+                    Mensaje = l.Mensaje ?? "" 
+                })
+                .ToList();
 
             // Obtener estado de las colas en RabbitMQ      
             var colasRabbit = new List<ColaRabbitDto>();
